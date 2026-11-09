@@ -11,6 +11,7 @@ import type { SearchPlatform, Track } from "lavalink-client";
 import { config } from "../config.js";
 import { cancelIdleTimer } from "../music/idleManager.js";
 import { wrapAppleTracks } from "../music/trackResolver.js";
+import { newTracksPrompt } from "../music/choice.js";
 import { Colors, errorEmbed, respond, successEmbed } from "../utils/embeds.js";
 import { escapeMd, formatDuration, truncate } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
@@ -111,6 +112,16 @@ export const search: Command = {
     }
 
     const track = tracks[Number(picked.values[0])]!;
+
+    // Something is playing: ask play now / play next / add to queue.
+    if (player.queue.current) {
+      const prompt = newTracksPrompt(interaction.guildId, interaction.user.id, wrapAppleTracks([track]), () => {
+        void interaction.editReply({ embeds: [errorEmbed("No choice made, so the song wasn't added.")], components: [] }).catch(() => undefined);
+      });
+      await picked.update(prompt);
+      return;
+    }
+
     try {
       if (!player.connected) await player.connect();
       cancelIdleTimer(interaction.guildId);

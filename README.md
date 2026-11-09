@@ -27,7 +27,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 
 ## Commands
 
-**Now-playing buttons.** Every track posts a "Now playing" message with controls, updated in place. Only people in the bot's voice channel can use them, except 📜.
+**Now-playing buttons.** Every track posts a "Now playing" message with labelled controls, updated in place (labels show the current state, e.g. "Resume" while paused, "Loop: queue"). Only people in the bot's voice channel can use them, except 📜.
 
 | Button | What it does |
 |---|---|
@@ -35,7 +35,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | ⏯️ | Pause / resume |
 | ⏭️ | Skip |
 | ⏹️ | Stop and leave |
-| 📜 | Show the queue (only you see it), with page buttons and a menu to play any song |
+| 📜 | Show or hide the queue inside the Now playing message, with ◀️ ▶️ pages and a song menu |
 | 🔀 | Shuffle |
 | 🔁 | Loop: off → queue → track |
 | 🔉 / 🔊 | Volume −10 / +10 |
@@ -43,18 +43,19 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 
 | Command | What it does |
 |---|---|
-| `/play <query>` | Apple Music, Spotify or YouTube / YouTube Music link (playlist, album, track), or a song name. While you type a name, matching songs appear as suggestions: pick one to add exactly that song. Playlists queue every track. |
-| `/playnext <query>` | Same as `/play` (with suggestions), but adds to the front of the queue |
-| `/search <query> [source]` | Pick from the top 10 results (YouTube Music, YouTube, Apple Music or Spotify) |
+| `/play <query>` | Apple Music, Spotify or YouTube / YouTube Music link (playlist, album, track), or a song name. While you type a name, matching songs appear as suggestions: pick one to add exactly that song. If something is already playing, a single song asks **▶️ Play now / ⏭️ Play next / ➕ Add to queue**. Playlists queue every track. |
+| `/playnext <query>` | Same as `/play` (with suggestions), but adds to the front of the queue without asking |
+| `/songrequest <song>` | Request a song: it goes to the **end** of the queue and nothing else changes (no skipping or reordering). Works without being in the voice channel. Up to 3 requests per person can wait at once. |
+| `/search <query> [source]` | Pick from the top 10 results (YouTube Music, YouTube, Apple Music or Spotify), then choose play now / next / add to queue |
 | `/pause` `/resume` `/skip` | Playback control |
 | `/previous` | Go back to the previous song. Press again to keep going back; ⏭️ goes forward again. (`/replay` restarts the current song.) |
 | `/stop` | Clear the queue and leave |
 | `/seek <time>` | Jump to a time: `1:30`, `90`, `1m30s` |
 | `/forward [s]` `/rewind [s]` | Skip ahead or back (default 10 s) |
 | `/replay` | Restart the current track |
-| `/queue [page]` | The queue, 10 songs per page. Use ◀️ ▶️ (or ⏮️ ⏭️ for the first/last page) to see the rest, and the menu to play any song on the page now. |
+| `/queue [page]` | The queue, 10 songs per page. Use ◀️ ▶️ (or ⏮️ ⏭️ for the first/last page) to see the rest, and the menu to pick a song (asks ▶️ Play now or ⏭️ Play next). The 📜 button shows the same list inside the Now playing message. |
 | `/playqueue <song>` | Play a queued song right now. Type part of the title and pick it from the list. The songs before it stay in the queue. |
-| `/history [song]` | The last 50 songs played, with a menu to play one again |
+| `/history [song]` | The last 50 songs played, with a menu to play one again (now, next, or at the end of the queue) |
 | `/nowplaying` | Current track with a progress bar and the control buttons |
 | `/jump <position>` | Skip to a queued song and **remove** the songs before it (pick from the list like `/playqueue`) |
 | `/move <from> <to>` | Reorder the queue |

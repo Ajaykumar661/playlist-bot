@@ -61,6 +61,41 @@ export async function playFromQueue(player: Player, index: number): Promise<Acti
   return ok(`▶️ Playing **${title(target)}** now.`);
 }
 
+/** Move a queued track to the front, so it plays after the current one. */
+export async function moveToFront(player: Player, index: number): Promise<ActionResult> {
+  const target = player.queue.tracks[index];
+  if (!target) return fail("That song isn't in the queue anymore.");
+  if (index > 0) {
+    await player.queue.splice(index, 1);
+    await player.queue.add(target, 0);
+  }
+  return ok(`⏭️ **${title(target)}** plays next.`);
+}
+
+export type AddMode = "now" | "next" | "end";
+type QueueTrack = Player["queue"]["tracks"][number];
+
+/** Add new tracks: play now, play next, or at the end of the queue. Starts playback if nothing is playing. */
+export async function addTracks(player: Player, tracks: QueueTrack[], mode: AddMode): Promise<ActionResult> {
+  const first = tracks[0];
+  if (!first) return fail("Nothing to add.");
+  const name = tracks.length === 1 ? `**${title(first)}**` : `**${tracks.length} songs**`;
+  const idle = !player.queue.current && !player.playing;
+
+  if (mode === "end") await player.queue.add(tracks);
+  else await player.queue.add(tracks, 0);
+
+  if (idle) {
+    await player.play();
+    return ok(`▶️ Playing ${name}.`);
+  }
+  if (mode === "now") {
+    const result = await playFromQueue(player, 0);
+    return result.ok ? ok(`▶️ Playing ${name} now.`) : result;
+  }
+  return ok(mode === "next" ? `⏭️ ${name} plays next.` : `➕ Added ${name} at position ${player.queue.tracks.length - tracks.length + 1}.`);
+}
+
 /**
  * Add a track to the history. The library only does this when a track ends by itself or is skipped,
  * not when it's replaced by play({ clientTrack }).

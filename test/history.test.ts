@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { Player } from "lavalink-client";
-import { dedupeHistory, playFromHistory, playFromQueue, previousTrack, skipTrack } from "../src/music/actions.ts";
+import { addTracks, dedupeHistory, moveToFront, playFromHistory, playFromQueue, previousTrack, skipTrack } from "../src/music/actions.ts";
 
 type FakeTrack = { info: { title: string; identifier: string } };
 const t = (name: string): FakeTrack => ({ info: { title: name, identifier: name } });
@@ -14,9 +14,11 @@ function fakePlayer(current: string | null, upcoming: string[], played: string[]
     previous: played.map(t),
     options: { maxPreviousTracks: 50 },
     utils: { save: () => Promise.resolve() },
-    add(track: FakeTrack, index?: number) {
-      if (index === undefined) queue.tracks.push(track);
-      else queue.tracks.splice(index, 0, track);
+    // Like the library: accepts one track or an array.
+    add(input: FakeTrack | FakeTrack[], index?: number) {
+      const items = Array.isArray(input) ? input : [input];
+      if (index === undefined || index >= queue.tracks.length) queue.tracks.push(...items);
+      else queue.tracks.splice(index, 0, ...items);
       return Promise.resolve(queue.tracks.length);
     },
     splice(index: number, amount: number) {
@@ -26,8 +28,10 @@ function fakePlayer(current: string | null, upcoming: string[], played: string[]
   const player = {
     queue,
     // Like the library: a replaced track is not added to the history; a skipped one is.
-    play({ clientTrack }: { clientTrack: FakeTrack }) {
-      queue.current = clientTrack;
+    playing: !!current,
+    play({ clientTrack }: { clientTrack?: FakeTrack } = {}) {
+      queue.current = clientTrack ?? queue.tracks.shift() ?? null;
+      player.playing = !!queue.current;
       return Promise.resolve();
     },
     skip() {
@@ -95,5 +99,33 @@ describe("previous / history", () => {
     const { player, state } = fakePlayer("A", [], ["A", "A", "B"]);
     dedupeHistory(player);
     assert.deepEqual(state().previous, ["A", "B"]);
+  });
+});
+
+describe("play now / play next / add to queue", () => {
+  it("⏭️ moves a queued song to the front", async () => {
+    const { player, state } = fakePlayer("A", ["B", "C", "D"]);
+    await moveToFront(player, 2);
+    assert.deepEqual(state(), { current: "A", tracks: ["D", "B", "C"], previous: [] });
+  });
+
+  it("➕ adds a new song at the end, ⏭️ at the front", async () => {
+    const { player, state } = fakePlayer("A", ["B"]);
+    await addTracks(player, [t("X")] as never, "end");
+    await addTracks(player, [t("Y")] as never, "next");
+    assert.deepEqual(state(), { current: "A", tracks: ["Y", "B", "X"], previous: [] });
+  });
+
+  it("▶️ plays a new song now and keeps the current one in the history", async () => {
+    const { player, state } = fakePlayer("A", ["B"]);
+    const result = await addTracks(player, [t("X")] as never, "now");
+    assert.ok(result.ok);
+    assert.deepEqual(state(), { current: "X", tracks: ["B"], previous: ["A"] });
+  });
+
+  it("starts playback when nothing is playing, whatever was chosen", async () => {
+    const { player, state } = fakePlayer(null, []);
+    await addTracks(player, [t("X")] as never, "end");
+    assert.deepEqual(state(), { current: "X", tracks: [], previous: [] });
   });
 });

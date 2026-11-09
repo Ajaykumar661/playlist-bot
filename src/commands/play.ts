@@ -5,6 +5,8 @@ import { classifyQuery } from "../music/resolve.js";
 import { cancelIdleTimer } from "../music/idleManager.js";
 import { wrapAppleTracks } from "../music/trackResolver.js";
 import { suggestTracks } from "../music/suggest.js";
+import { newTracksPrompt } from "../music/choice.js";
+import { refreshNowPlaying } from "../music/nowPlaying.js";
 import { Colors, errorEmbed, respond } from "../utils/embeds.js";
 import { escapeMd, formatDuration, pluralize, truncate } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
@@ -13,7 +15,7 @@ import type { BotClient, Command } from "../utils/types.js";
 
 type AnyResult = SearchResult | UnresolvedSearchResult;
 
-const LIBRARY_LINK_MESSAGE =
+export const LIBRARY_LINK_MESSAGE =
   "That's a link to a playlist in your **personal library**, which only you can see.\n" +
   "To share it publicly: open the playlist in Apple Music → **⋯** → **Share Playlist** (or *Make Public* / " +
   "*Show on My Profile*) → **Copy Link**, then use that `music.apple.com/…/playlist/…/pl.u-…` link.";
@@ -126,6 +128,18 @@ export async function runPlay(
 
     // Apple tracks are matched to YouTube by our own matcher, lazily, right before each one plays.
     const tracks = wrapAppleTracks(result.loadType === "playlist" ? result.tracks : [result.tracks[0]!]);
+
+    // One song while something is playing (/play, not /playnext): ask play now / next / add to queue.
+    if (result.loadType !== "playlist" && !next && !wasIdle) {
+      const prompt = newTracksPrompt(interaction.guildId, interaction.user.id, tracks, () => {
+        void interaction
+          .editReply({ embeds: [errorEmbed("No choice made, so the song wasn't added.")], components: [] })
+          .catch(() => undefined);
+      });
+      await interaction.editReply(prompt);
+      return;
+    }
+
     if (next) await player.queue.add(tracks, 0);
     else await player.queue.add(tracks);
 
@@ -148,6 +162,8 @@ export async function runPlay(
       await respond(interaction, embed);
     }
 
+    if (!wasIdle) await refreshNowPlaying(client, player); // the queue shown in the now-playing message
+
     if (!player.playing && !player.paused) {
       try {
         await player.play();
@@ -161,7 +177,7 @@ export async function runPlay(
   }
 }
 
-async function search(player: Player, query: ReturnType<typeof classifyQuery>, requester: unknown): Promise<AnyResult> {
+export async function search(player: Player, query: ReturnType<typeof classifyQuery>, requester: unknown): Promise<AnyResult> {
   switch (query.kind) {
     case "apple":
     case "url":

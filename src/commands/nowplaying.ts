@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { adoptLiveMessage, controlRows, nowPlayingEmbed } from "../music/nowPlaying.js";
+import { adoptLiveMessage, playerView } from "../music/nowPlaying.js";
 import { replyError } from "../utils/embeds.js";
 import type { Command } from "../utils/types.js";
 
@@ -14,8 +14,7 @@ export const nowplaying: Command = {
       return;
     }
     const response = await interaction.reply({
-      embeds: [nowPlayingEmbed(player, track, true)],
-      components: controlRows(player),
+      ...playerView(player, track, true),
       allowedMentions: { parse: [] },
       withResponse: true,
     });

@@ -14,11 +14,11 @@ import {
   toggleAutoplay,
   type ActionResult,
 } from "./actions.js";
-import { CONTROL_PREFIX, controlRows, isLiveMessage, nowPlayingEmbed, type ControlId } from "./nowPlaying.js";
-import { buildQueueEmbed, queueComponents } from "../commands/queue.js";
+import { CONTROL_PREFIX, isLiveMessage, playerView, setQueuePage, toggleQueue, type ControlId } from "./nowPlaying.js";
+import { buildQueueEmbed, clampPage, pageFromButton, queueComponents } from "./queueView.js";
 
 /** Buttons that change state but keep the same track: re-render the message in place. */
-const IN_PLACE = new Set<ControlId>(["pause", "shuffle", "loop", "voldown", "volup", "autoplay"]);
+const IN_PLACE = new Set<ControlId>(["pause", "queue", "shuffle", "loop", "voldown", "volup", "autoplay"]);
 
 export function isControlButton(interaction: ButtonInteraction): boolean {
   return interaction.customId.startsWith(CONTROL_PREFIX);
@@ -35,7 +35,7 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
     return;
   }
 
-  // Same rule as slash commands: you must be listening to use the controls (except viewing the queue).
+  // Same rule as slash commands: you must be listening to use the controls (except showing the queue).
   if (id !== "queue") {
     const memberChannel = interaction.member.voice.channelId;
     if (!memberChannel) return void (await deny("Join the voice channel to use the controls."));
@@ -48,12 +48,10 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
   try {
     switch (id) {
       case "queue":
-        await interaction.reply({
-          embeds: [buildQueueEmbed(player, 0)],
-          components: queueComponents(player, 0),
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
+        // Show or hide the queue inside this message.
+        toggleQueue(player);
+        result = { ok: true, message: "" };
+        break;
       case "previous":
         result = await previousTrack(player);
         break;
@@ -93,7 +91,7 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
 
   const track = player.queue.current;
   if (IN_PLACE.has(id) && track) {
-    await interaction.update({ embeds: [nowPlayingEmbed(player, track)], components: controlRows(player) });
+    await interaction.update(playerView(player, track));
     return;
   }
 
@@ -102,4 +100,32 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
     embeds: [infoEmbed(`${result.message} — <@${interaction.user.id}>`)],
     allowedMentions: { parse: [] },
   });
+}
+
+/**
+ * ◀️ ▶️ queue page buttons. On the now-playing message they flip the queue shown inside it;
+ * on a /queue message they flip that message (or show a private copy to someone else).
+ */
+export async function handleQueuePageButton(interaction: ButtonInteraction<"cached">, client: BotClient): Promise<void> {
+  const player = client.lavalink.getPlayer(interaction.guildId);
+  if (!player) {
+    await interaction.update({ embeds: [infoEmbed("The queue is gone.")], components: [] });
+    return;
+  }
+  const page = clampPage(player, pageFromButton(interaction.customId));
+
+  const track = player.queue.current;
+  if (track && isLiveMessage(interaction.guildId, interaction.message.id)) {
+    setQueuePage(player, page);
+    await interaction.update(playerView(player, track));
+    return;
+  }
+
+  const view = { embeds: [buildQueueEmbed(player, page)], components: queueComponents(player, page) };
+  const owner = interaction.message.interactionMetadata?.user.id;
+  if (owner && owner !== interaction.user.id) {
+    await interaction.reply({ ...view, flags: MessageFlags.Ephemeral });
+    return;
+  }
+  await interaction.update(view);
 }

@@ -2,14 +2,26 @@ import { Events } from "discord.js";
 import { logger } from "../utils/logger.js";
 import { replyError } from "../utils/embeds.js";
 import type { BotEvent } from "../utils/types.js";
-import { handleControlButton, isControlButton } from "../music/controls.js";
+import { handleControlButton, handleQueuePageButton, isControlButton } from "../music/controls.js";
+import { handleChoiceButton, isChoiceButton } from "../music/choice.js";
 import { handlePickMenu, isPickMenu } from "../music/picker.js";
-import { handleQueuePageButton, isQueuePageButton } from "../commands/queue.js";
+import { isQueuePageButton } from "../music/queueView.js";
 
 export const interactionCreateEvent: BotEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(client, interaction) {
-    // Queue page buttons (on /queue and the 📜 view).
+    // "Play now / Play next / Add to queue" buttons.
+    if (interaction.isButton() && isChoiceButton(interaction.customId)) {
+      if (!interaction.inCachedGuild()) return;
+      try {
+        await handleChoiceButton(interaction, client);
+      } catch (error) {
+        logger.error({ err: error, button: interaction.customId }, "Choice button failed");
+      }
+      return;
+    }
+
+    // Queue page buttons (in the now-playing message and on /queue).
     if (interaction.isButton() && isQueuePageButton(interaction.customId)) {
       if (!interaction.inCachedGuild()) return;
       try {
