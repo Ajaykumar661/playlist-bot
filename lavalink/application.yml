@@ -1,0 +1,165 @@
+# Lavalink v4 configuration.
+# Every secret or tunable value is read from environment variables using Spring's
+# ${NAME:default} syntax. Docker Compose passes them in from the project's .env file.
+
+server:
+  port: ${LAVALINK_PORT:2333}
+  address: 0.0.0.0
+  http2:
+    enabled: false
+
+lavalink:
+  plugins:
+    # Snapshot of youtube-source master (2026-09-17). Release 1.18.2 can't play on most videos since
+    # YouTube's August 2026 changes (lavalink-devs/youtube-source#226, #240). This build has the TV-client
+    # PS4 User-Agent fix (#233). Switch back to a release (snapshot: false) once one ships with it.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:2be8e542d3f6f178e048dca565892684c2e40177"
+      snapshot: true
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
+      snapshot: false
+  pluginsDir: "./plugins"
+  server:
+    password: "${LAVALINK_PASSWORD}"
+    sources:
+      # The built-in YouTube source is deprecated. youtube-plugin replaces it.
+      youtube: false
+      bandcamp: true
+      soundcloud: true
+      twitch: false
+      vimeo: false
+      nico: false
+      http: false
+      local: false
+    # Used by /filter (bassboost, nightcore, vaporwave, 8D, karaoke, soft, EQ presets).
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: false
+      rotation: true
+      channelMix: true
+      lowPass: true
+    bufferDurationMs: 400
+    frameBufferDurationMs: 5000
+    opusEncodingQuality: 10
+    resamplingQuality: HIGH
+    trackStuckThresholdMs: 10000
+    useSeekGhosting: true
+    youtubePlaylistLoadLimit: 6
+    playerUpdateInterval: 5
+    youtubeSearchEnabled: true
+    soundcloudSearchEnabled: true
+    gc-warnings: true
+
+plugins:
+  youtube:
+    enabled: true
+    allowSearch: true
+    allowDirectVideoIds: true
+    allowDirectPlaylistIds: true
+    # MUSIC handles ytmsearch: (metadata only). The others are tried in order for playback.
+    # IOS goes first: since YouTube's SABR change (Nov 2026) every other client gets no URL for the
+    # audio-only formats and falls back to itag 18 (the 360p video file), which sounds noisy.
+    # IOS still gets itag 140 (AAC ~130 kbps, audio only). TV (needs OAuth) is the fallback.
+    clients:
+      - MUSIC
+      - IOS
+      - TV
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED
+      - TVHTML5_SIMPLY
+    oauth:
+      # Optional. Use this if YouTube blocks your server IP (see README > Troubleshooting).
+      enabled: ${YOUTUBE_OAUTH_ENABLED:false}
+      refreshToken: "${YOUTUBE_OAUTH_REFRESH_TOKEN:}"
+      skipInitialization: ${YOUTUBE_OAUTH_SKIP_INIT:true}
+    # Self-hosted signature-cipher server (kikkia/yt-cipher, the "yt-cipher" service in docker-compose.yml).
+    # YouTube playback fails with "The page needs to be reloaded" without it.
+    # To turn it off, comment out this whole block: the plugin enables it whenever a url key exists, even an empty one.
+    remoteCipher:
+      url: "${YOUTUBE_REMOTE_CIPHER_URL:http://yt-cipher:8001}"
+      password: "${YT_CIPHER_PASSWORD}"
+      userAgent: "apple-music-discord-bot"
+
+  lavasrc:
+    # Order in which each Apple Music track is resolved to a playable source.
+    # A provider that finds nothing (or whose source is disabled) falls through to the next one.
+    providers:
+      - "dzisrc:%ISRC%"            # Deezer by ISRC (only when DEEZER_ENABLED=true)
+      - "ytmsearch:\"%ISRC%\""     # YouTube Music by ISRC
+      - "ytsearch:\"%ISRC%\""      # YouTube by ISRC
+      - "ytmsearch:%QUERY%"        # YouTube Music by "title artist"
+      - "ytsearch:%QUERY%"         # YouTube by "title artist"
+    sources:
+      spotify: true
+      applemusic: true
+      # Deezer refuses to start without a valid master decryption key, so it stays off unless you set one.
+      deezer: ${DEEZER_ENABLED:false}
+      yandexmusic: false
+      flowerytts: false
+      youtube: false
+      vkmusic: false
+      tidal: false
+      qobuz: false
+      ytdlp: false
+      jiosaavn: false
+    lyrics-sources:
+      spotify: false
+      deezer: false
+      youtube: false
+      yandexmusic: false
+      vkmusic: false
+      lrcLib: false
+    spotify:
+      # Optional. Empty = LavaSrc uses an anonymous web token, which Spotify sometimes blocks.
+      # Create an app at https://developer.spotify.com/dashboard for reliable playlist loading.
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
+      countryCode: "${SPOTIFY_COUNTRY_CODE:IN}"
+      playlistLoadLimit: 6   # pages of 100 tracks
+      albumLoadLimit: 6      # pages of 50 tracks
+      resolveArtistsInSearch: false
+      localFiles: false
+    applemusic:
+      countryCode: "${APPLE_MUSIC_COUNTRY_CODE:in}"
+      # Empty = LavaSrc scrapes a fresh token from music.apple.com automatically.
+      mediaAPIToken: "${APPLE_MUSIC_MEDIA_API_TOKEN:}"
+      playlistLoadLimit: 6   # pages of 300 tracks
+      albumLoadLimit: 6
+    deezer:
+      masterDecryptionKey: "${DEEZER_MASTER_DECRYPTION_KEY:}"
+      arl: "${DEEZER_ARL:}"
+      formats: ["MP3_128", "MP3_64"]
+
+metrics:
+  prometheus:
+    enabled: false
+    endpoint: /metrics
+
+sentry:
+  dsn: ""
+  environment: ""
+
+logging:
+  file:
+    path: ./logs/
+  level:
+    root: INFO
+    lavalink: INFO
+    dev.lavalink.youtube: INFO
+    com.github.topi314.lavasrc: INFO
+  request:
+    enabled: true
+    includeClientInfo: true
+    includeHeaders: false
+    includeQueryString: true
+    includePayload: false
+    maxPayloadLength: 10000
+  logback:
+    rollingpolicy:
+      max-file-size: 25MB
+      max-history: 7

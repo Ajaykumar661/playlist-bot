@@ -1,0 +1,10 @@
+node_modules
+dist
+lavalink
+.env
+.env.*
+.git
+*.log
+README.md
+data
+test

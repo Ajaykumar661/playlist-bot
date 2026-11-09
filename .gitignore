@@ -1,0 +1,25 @@
+# Dependencies & build output
+node_modules/
+dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Lavalink runtime files
+lavalink/logs/*
+!lavalink/logs/.gitkeep
+lavalink/plugins/*
+!lavalink/plugins/.gitkeep
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Bot runtime data: match cache (SQLite) and downloaded embedding model
+data/

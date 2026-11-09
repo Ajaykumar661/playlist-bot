@@ -1,0 +1,73 @@
+{
+  "$comment": "Track-matching weights and thresholds. Restart the bot after editing. Set LOG_LEVEL=debug to see each candidate's score breakdown. Cached matches are reused, so clear data/matches.db (or set cache.enabled=false) while tuning.",
+
+  "isrc": {
+    "enabled": true,
+    "$comment_verify": "A YouTube search for an ISRC can return an unrelated video when the ISRC isn't indexed, so ISRC hits must also reach minScore with the normal scorer. Deezer ISRC hits are exact and are accepted without this check.",
+    "verify": true,
+    "minScore": 40
+  },
+
+  "search": {
+    "$comment": "Each source is tried in order until a candidate reaches minAcceptScore. Query = '<artist> <title>'.",
+    "sources": ["ytmsearch", "ytsearch"],
+    "maxCandidates": 8,
+    "minAcceptScore": 50
+  },
+
+  "weights": {
+    "$comment": "title and artist are multiplied by a 0..1 similarity (fuzzball token_set_ratio / 100). The rest are flat points.",
+    "title": 50,
+    "$comment_coreTitleShare": "For titles like 'Song (From \"Film\")': share of the title score that compares only 'Song' (0..1). The rest compares 'Song Film'.",
+    "coreTitleShare": 0.75,
+    "artist": 25,
+    "topicChannelBonus": 8,
+    "topicChannelMinArtistSimilarity": 0.8,
+    "officialAudioBonus": 4
+  },
+
+  "duration": {
+    "$comment": "|candidate - source| in seconds. <= boostWithinSec adds boost, > penaltyBeyondSec subtracts penalty, anything between adds nothing.",
+    "boostWithinSec": 5,
+    "boost": 10,
+    "penaltyBeyondSec": 20,
+    "penalty": 25
+  },
+
+  "officialAudioPatterns": ["official audio", "official full audio", "full audio song", "audio song"],
+
+  "$comment_variants": "A group's penalty applies once if any of its patterns appears as whole words in the candidate's title or channel name, unless the Apple title or album also contains one of them. Patterns are matched after lowercasing and replacing punctuation with spaces.",
+  "variants": [
+    { "name": "live", "patterns": ["live", "live performance", "in concert", "concert", "live at", "live from"], "penalty": 30 },
+    { "name": "cover", "patterns": ["cover", "covered by", "cover song", "female version", "male version", "tribute", "parody"], "penalty": 35 },
+    { "name": "remake", "patterns": ["8 bit", "8bit", "emulation", "chiptune", "music box", "piano version", "guitar version", "violin version", "flute version"], "penalty": 40 },
+    { "name": "remix", "patterns": ["remix", "rmx", "dj mix", "mashup", "bootleg"], "penalty": 30 },
+    { "name": "lofi", "patterns": ["lofi", "lo fi", "lofi version", "chill version"], "penalty": 30 },
+    { "name": "sped up", "patterns": ["sped up", "speed up", "spedup"], "penalty": 40 },
+    { "name": "slowed", "patterns": ["slowed", "slowed reverb", "reverb"], "penalty": 40 },
+    { "name": "nightcore", "patterns": ["nightcore"], "penalty": 40 },
+    { "name": "8d", "patterns": ["8d", "8d audio", "16d", "3d audio"], "penalty": 40 },
+    { "name": "karaoke", "patterns": ["karaoke", "instrumental", "minus one", "backing track"], "penalty": 40 },
+    { "name": "lyrics", "patterns": ["lyrics", "lyric", "lyrical", "lyric video"], "penalty": 6 },
+    { "name": "reaction", "patterns": ["reaction", "reacts", "reacting", "review"], "penalty": 45 },
+    { "name": "bass boosted", "patterns": ["bass boosted", "bass boost"], "penalty": 35 },
+    { "name": "short edit", "patterns": ["whatsapp status", "status video", "ringtone", "shorts", "teaser", "promo"], "penalty": 35 },
+    { "name": "compilation", "patterns": ["jukebox", "all songs", "full album", "nonstop"], "penalty": 35 }
+  ],
+
+  "rerank": {
+    "$comment": "If the best two scores are within `margin` points, every candidate within that margin is reranked by score + weight * cosine(embedding('<artist> - <title>'), embedding(candidate title)).",
+    "enabled": true,
+    "margin": 6,
+    "weight": 15,
+    "model": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
+    "dtype": "q8",
+    "cacheDir": "./data/models"
+  },
+
+  "cache": {
+    "enabled": true,
+    "path": "./data/matches.db",
+    "maxAgeDays": 90
+  }
+}

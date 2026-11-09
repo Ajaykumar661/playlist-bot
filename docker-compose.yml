@@ -1,0 +1,57 @@
+# `docker compose up -d` starts Lavalink and the bot.
+# To run the bot locally with `npm run dev` instead, start only Lavalink: `docker compose up -d lavalink`.
+services:
+  # Decrypts YouTube player signatures for youtube-plugin (see lavalink/application.yml > remoteCipher).
+  # Only published as "master", so it's pinned to the digest current on 2026-11-09.
+  # To update: docker pull ghcr.io/kikkia/yt-cipher:master, then copy the new digest here.
+  yt-cipher:
+    image: ghcr.io/kikkia/yt-cipher@sha256:4c5ec381ff57336cfc24822d2b526a5ad7cd0171f61065a1bbc87bb736842449
+    container_name: yt-cipher
+    restart: unless-stopped
+    environment:
+      API_TOKEN: ${YT_CIPHER_PASSWORD:?Set YT_CIPHER_PASSWORD in .env}
+      OVERRIDE_PLAYER_VARIANT: IAS # the upstream-recommended variant
+    # No ports published: only Lavalink talks to it, over the compose network.
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4.2.2
+    container_name: lavalink
+    restart: unless-stopped
+    # application.yml reads LAVALINK_PASSWORD, APPLE_MUSIC_* etc. from these variables.
+    env_file: .env
+    environment:
+      _JAVA_OPTIONS: "-Xmx1G"
+    depends_on:
+      - yt-cipher
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+      - ./lavalink/plugins:/opt/Lavalink/plugins # downloaded plugin jars, cached between restarts
+      - ./lavalink/logs:/opt/Lavalink/logs
+    ports:
+      # Published on localhost only, so a locally running bot can reach it but the internet can't.
+      - "127.0.0.1:${LAVALINK_PORT:-2333}:${LAVALINK_PORT:-2333}"
+    healthcheck:
+      # The port opens only after plugins have loaded and Lavalink is ready.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/$${LAVALINK_PORT:-2333}' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  bot:
+    build: .
+    image: apple-music-discord-bot:latest
+    container_name: apple-music-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LAVALINK_HOST: lavalink # the service name on the compose network, overriding "localhost" in .env
+    volumes:
+      - bot-data:/app/data # SQLite match cache + embedding model (downloaded once, ~120 MB)
+      - ./config:/app/config:ro # edit config/matching.json, then `docker compose restart bot`
+    depends_on:
+      lavalink:
+        condition: service_healthy
+
+volumes:
+  bot-data:
