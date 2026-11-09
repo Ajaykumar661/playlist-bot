@@ -4,6 +4,7 @@ import { config } from "../config.js";
 import { classifyQuery } from "../music/resolve.js";
 import { cancelIdleTimer } from "../music/idleManager.js";
 import { wrapAppleTracks } from "../music/trackResolver.js";
+import { suggestTracks } from "../music/suggest.js";
 import { Colors, errorEmbed, respond } from "../utils/embeds.js";
 import { escapeMd, formatDuration, pluralize, truncate } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
@@ -24,14 +25,16 @@ export const play: Command = {
     .addStringOption((o) =>
       o
         .setName("query")
-        .setDescription("Apple Music / Spotify / YouTube link, or search text")
+        .setDescription("Link, or type a song name and pick from the suggestions")
         .setRequired(true)
-        .setMaxLength(500),
+        .setMaxLength(500)
+        .setAutocomplete(true),
     ),
 
   async execute(interaction, client) {
     await runPlay(interaction, client, interaction.options.getString("query", true), false);
   },
+  autocomplete: suggestTracks,
 };
 
 /** Shared by /play (add to the end) and /playnext (add to the front, `next = true`). */

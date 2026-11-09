@@ -4,11 +4,23 @@ import { replyError } from "../utils/embeds.js";
 import type { BotEvent } from "../utils/types.js";
 import { handleControlButton, isControlButton } from "../music/controls.js";
 import { handlePickMenu, isPickMenu } from "../music/picker.js";
+import { handleQueuePageButton, isQueuePageButton } from "../commands/queue.js";
 
 export const interactionCreateEvent: BotEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(client, interaction) {
-    // Now-playing control buttons. Other buttons (queue pages, /search menu) use collectors in their command.
+    // Queue page buttons (on /queue and the 📜 view).
+    if (interaction.isButton() && isQueuePageButton(interaction.customId)) {
+      if (!interaction.inCachedGuild()) return;
+      try {
+        await handleQueuePageButton(interaction, client);
+      } catch (error) {
+        logger.error({ err: error, button: interaction.customId }, "Queue page button failed");
+      }
+      return;
+    }
+
+    // Now-playing control buttons. The /search menu uses a collector in its command.
     if (interaction.isButton() && isControlButton(interaction)) {
       if (!interaction.inCachedGuild()) return;
       try {

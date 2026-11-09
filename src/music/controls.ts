@@ -15,8 +15,7 @@ import {
   type ActionResult,
 } from "./actions.js";
 import { CONTROL_PREFIX, controlRows, isLiveMessage, nowPlayingEmbed, type ControlId } from "./nowPlaying.js";
-import { buildQueueEmbed } from "../commands/queue.js";
-import { queuePickRow } from "./picker.js";
+import { buildQueueEmbed, queueComponents } from "../commands/queue.js";
 
 /** Buttons that change state but keep the same track: re-render the message in place. */
 const IN_PLACE = new Set<ControlId>(["pause", "shuffle", "loop", "voldown", "volup", "autoplay"]);
@@ -48,15 +47,13 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
   let result: ActionResult;
   try {
     switch (id) {
-      case "queue": {
-        const pick = queuePickRow(player, 0, 10);
+      case "queue":
         await interaction.reply({
           embeds: [buildQueueEmbed(player, 0)],
-          components: pick ? [pick] : [],
+          components: queueComponents(player, 0),
           flags: MessageFlags.Ephemeral,
         });
         return;
-      }
       case "previous":
         result = await previousTrack(player);
         break;
