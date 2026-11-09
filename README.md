@@ -1,4 +1,4 @@
-# Apple Music Discord Bot
+# Music Discord Bot
 
 A self-hosted Discord music bot that plays **Apple Music, Spotify and YouTube** playlists, albums and songs in voice channels.
 
