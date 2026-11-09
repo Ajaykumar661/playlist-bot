@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { parseChannelIds } from "./utils/allowlist.js";
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -37,6 +38,8 @@ export const config = {
   appleMusicCountryCode: optional("APPLE_MUSIC_COUNTRY_CODE", "in"),
   /** Same variable Lavalink reads. When true the matcher tries Deezer ISRC (dzisrc) first. */
   deezerEnabled: optional("DEEZER_ENABLED", "false").toLowerCase() === "true",
+  /** Slash commands only work in these channels (empty = everywhere). Applies to everyone, admins included. */
+  allowedChannelIds: parseChannelIds(process.env.ALLOWED_CHANNEL_IDS),
   logLevel: optional("LOG_LEVEL", "info"),
   defaultVolume: integer("DEFAULT_VOLUME", 100, 0, 150),
   /** How long the bot waits with an empty queue or empty channel before leaving. */

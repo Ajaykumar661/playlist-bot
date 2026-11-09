@@ -18,7 +18,7 @@ export const help: Command = {
       .setTitle("Commands")
       .setDescription(
         "Play Apple Music, Spotify or YouTube links (playlists, albums, songs) or search text.\n" +
-          "The **Now playing** message has buttons: ⏮️ ⏯️ ⏭️ ⏹️ 📜 · 🔀 🔁 🔉 🔊 ♾️",
+          "The **Now playing** message has buttons: ⏮️ ⏯️ ⏭️ ⏹️ 📜 · 🔀 🔁 ♾️ 🎤 (use `/volume` for volume)",
       );
     const listed = new Set<string>();
     for (const group of GROUPS) {

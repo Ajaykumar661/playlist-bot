@@ -14,7 +14,6 @@ const ok = (message: string): ActionResult => ({ ok: true, message });
 const fail = (message: string): ActionResult => ({ ok: false, message });
 const title = (t: { info: { title: string } } | null | undefined) => escapeMd(truncate(t?.info.title ?? "track", 80));
 
-export const VOLUME_STEP = 10;
 export const MAX_VOLUME = 150;
 
 export async function skipTrack(player: Player): Promise<ActionResult> {
@@ -155,8 +154,6 @@ export async function setVolume(player: Player, level: number): Promise<ActionRe
   const icon = clamped === 0 ? "🔇" : clamped < 50 ? "🔈" : clamped < 100 ? "🔉" : "🔊";
   return ok(`${icon} Volume **${clamped}%**.`);
 }
-
-export const changeVolume = (player: Player, delta: number) => setVolume(player, player.volume + delta);
 
 export async function seekTo(player: Player, positionMs: number): Promise<ActionResult> {
   const track = player.queue.current;

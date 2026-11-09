@@ -27,9 +27,8 @@ export type ControlId =
   | "queue"
   | "shuffle"
   | "loop"
-  | "voldown"
-  | "volup"
-  | "autoplay";
+  | "autoplay"
+  | "lyrics";
 
 const METHOD_LABEL = {
   cache: "cached match",
@@ -112,9 +111,8 @@ export function controlRows(player: Player, disabled = false): ActionRowBuilder<
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
       button("shuffle", "🔀", ButtonStyle.Secondary, disabled || player.queue.tracks.length < 2, "Shuffle"),
       button("loop", loopEmoji, on(player.repeatMode !== "off"), disabled, loopLabel),
-      button("voldown", "🔉", ButtonStyle.Secondary, disabled || player.volume <= 0, "Vol −"),
-      button("volup", "🔊", ButtonStyle.Secondary, disabled || player.volume >= 150, "Vol +"),
       button("autoplay", "♾️", on(autoplayOn), disabled, autoplayOn ? "Autoplay: on" : "Autoplay: off"),
+      button("lyrics", "🎤", ButtonStyle.Secondary, disabled, "Lyrics"),
     ),
   ];
 }

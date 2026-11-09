@@ -1,47 +1,24 @@
 import { EmbedBuilder, SlashCommandBuilder } from "discord.js";
-import { getMatchData } from "../music/trackResolver.js";
-import { Colors, errorEmbed, respond } from "../utils/embeds.js";
+import { findLyrics, findLyricsForTrack, parseLrc, type LrclibTrack } from "../music/lyrics.js";
+import { startLiveLyrics } from "../music/liveLyrics.js";
+import { Colors, errorEmbed, infoEmbed, respond } from "../utils/embeds.js";
 import { truncate } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
 import type { Command } from "../utils/types.js";
 
-// LRCLIB: free, no API key, good coverage including Indian film songs. https://lrclib.net/docs
-const API = "https://lrclib.net/api";
-const HEADERS = { "User-Agent": "apple-music-discord-bot/1.0 (self-hosted Discord bot)" };
 const PAGE = 3900;
-
-interface LrclibTrack {
-  trackName: string;
-  artistName: string;
-  albumName?: string;
-  duration?: number;
-  instrumental?: boolean;
-  plainLyrics?: string | null;
-}
-
-async function fetchJson<T>(url: string): Promise<T | null> {
-  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(10_000) });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`LRCLIB returned ${res.status}`);
-  return (await res.json()) as T;
-}
-
-async function findLyrics(title: string, artist: string | null, durationSec: number | null): Promise<LrclibTrack | null> {
-  if (artist) {
-    const params = new URLSearchParams({ track_name: title, artist_name: artist });
-    if (durationSec) params.set("duration", String(Math.round(durationSec)));
-    const exact = await fetchJson<LrclibTrack>(`${API}/get?${params.toString()}`);
-    if (exact?.plainLyrics || exact?.instrumental) return exact;
-  }
-  const results = await fetchJson<LrclibTrack[]>(`${API}/search?${new URLSearchParams({ q: [artist, title].filter(Boolean).join(" ") }).toString()}`);
-  return results?.find((r) => r.plainLyrics) ?? null;
-}
 
 export const lyrics: Command = {
   data: new SlashCommandBuilder()
     .setName("lyrics")
-    .setDescription("Show lyrics for the current song, or search for any song")
-    .addStringOption((o) => o.setName("song").setDescription("Song to look up (default: what's playing)").setMaxLength(200)),
+    .setDescription("Rolling lyrics for the current song, or the full lyrics of any song")
+    .addStringOption((o) =>
+      o
+        .setName("mode")
+        .setDescription("Live (default): lines roll along with the song. Full: the whole text.")
+        .addChoices({ name: "Live", value: "live" }, { name: "Full", value: "full" }),
+    )
+    .addStringOption((o) => o.setName("song").setDescription("Look up another song instead (shows the full text)").setMaxLength(200)),
 
   async execute(interaction, client) {
     const query = interaction.options.getString("song");
@@ -50,29 +27,31 @@ export const lyrics: Command = {
       await respond(interaction, errorEmbed("Nothing is playing. Use `/lyrics song:<name>` to look one up."), true);
       return;
     }
+
+    // Rolling lyrics for the current song (only this song: they end when it does).
+    if (!query && interaction.options.getString("mode") !== "full") {
+      const reply = await interaction.reply({ embeds: [infoEmbed("🎤 Looking up lyrics…")], withResponse: true });
+      const message = reply.resource?.message;
+      if (message) startLiveLyrics(client, interaction.guildId, message);
+      return;
+    }
+
     await interaction.deferReply();
-
-    // Prefer the Apple/Spotify metadata over YouTube's noisy titles.
-    const meta = current ? getMatchData(current)?.apple : null;
-    const title = query ?? meta?.title ?? current!.info.title;
-    const artist = query ? null : (meta?.artist ?? current!.info.author);
-    const durationSec = query ? null : (meta?.durationMs ?? current!.info.duration) / 1000;
-    const cleanTitle = title.replace(/\s*[([](?:feat|ft|from|with)[^)\]]*[)\]]/gi, "").trim();
-
     let found: LrclibTrack | null;
     try {
-      found = await findLyrics(cleanTitle, artist?.split(/,|&/)[0]?.trim() ?? null, durationSec);
+      found = query ? await findLyrics(query, null, null) : await findLyricsForTrack(current!);
     } catch (error) {
-      logger.warn({ err: error, title }, "Lyrics lookup failed");
+      logger.warn({ err: error, query }, "Lyrics lookup failed");
       await respond(interaction, errorEmbed("The lyrics service didn't respond. Try again in a moment."));
       return;
     }
 
-    if (!found) {
-      await respond(interaction, errorEmbed(`No lyrics found for **${truncate(title, 100)}**.`));
+    const plain = found?.plainLyrics?.trim() || (found?.syncedLyrics ? parseLrc(found.syncedLyrics).map((l) => l.text).join("\n") : "");
+    if (!found || (!plain && !found.instrumental)) {
+      await respond(interaction, errorEmbed(`No lyrics found for **${truncate(query ?? current!.info.title, 100)}**.`));
       return;
     }
-    const text = found.instrumental ? "🎼 *Instrumental*" : (found.plainLyrics ?? "").trim();
+    const text = found.instrumental ? "🎼 *Instrumental*" : plain;
     const pages: string[] = [];
     for (let i = 0; i < text.length && pages.length < 3; i += PAGE) pages.push(text.slice(i, i + PAGE));
     const embeds = pages.map((page, i) =>

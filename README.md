@@ -38,8 +38,8 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | 📜 | Show or hide the queue inside the Now playing message, with ◀️ ▶️ pages and a song menu |
 | 🔀 | Shuffle |
 | 🔁 | Loop: off → queue → track |
-| 🔉 / 🔊 | Volume −10 / +10 |
 | ♾️ | Autoplay |
+| 🎤 | Rolling lyrics for this song (optional, anyone can press it) |
 
 | Command | What it does |
 |---|---|
@@ -69,12 +69,13 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | `/autoplay` | When the queue runs out, keep playing similar songs (from YouTube's mix for the last track) |
 | `/247` | Stay in the voice channel even when idle or alone |
 | `/wrong` | Wrong song? Skips it, never uses that YouTube video for this song again, and plays the next-best match |
-| `/lyrics [song]` | Lyrics for the current song (or any song), from [LRCLIB](https://lrclib.net) |
+| `/lyrics [mode] [song]` | **Live** (default): rolling, time-synced lyrics for the current song: the line being sung is shown big and the message scrolls with the song. It's per song and ends when the song does. **Full**: the whole text. `song:` looks up any song. From [LRCLIB](https://lrclib.net). |
 | `/grab` | DM yourself the current song's links |
 | `/leave` | Leave the voice channel |
 | `/help` | List all commands |
 
 **Behaviour:**
+- **Allowed channels:** if `ALLOWED_CHANNEL_IDS` is set, slash commands only work in those channels (see [Configure `.env`](#3-configure-env)). Buttons and menus keep working on the bot's own messages, which are posted in an allowed channel.
 - **Voice channel:** you must be in a voice channel. If the bot is already playing in a different channel in the same server, it politely refuses.
 - **Auto-leave:** the bot leaves after **3 minutes** with an empty queue, or 3 minutes after everyone leaves its channel (unless `/247` is on).
 - **Unmatched songs:** songs that can't be matched are skipped. When the queue ends, the bot posts a summary such as *"3 tracks couldn't be found"*.
@@ -109,6 +110,7 @@ cp .env.example .env      # Windows PowerShell: Copy-Item .env.example .env
 | `DISCORD_TOKEN` | Developer Portal → Bot → Reset Token |
 | `CLIENT_ID` | Developer Portal → General Information → Application ID |
 | `GUILD_ID` | Right-click your server → Copy Server ID (Developer Mode on) |
+| `ALLOWED_CHANNEL_IDS` | **Optional.** Comma-separated channel IDs where commands work (right-click a channel → Copy Channel ID), e.g. `111111111111111111,222222222222222222`. Commands anywhere else get a private *"Use me in #channel 🎵"* pointing to the first one. Applies to everyone, admins included. Empty = every channel. |
 | `LAVALINK_HOST` | `localhost` when running the bot with npm. Docker Compose overrides it to `lavalink` for the bot container. |
 | `LAVALINK_PORT` | `2333` unless that port is taken |
 | `LAVALINK_PASSWORD` | Any long random string. Lavalink and the bot both read it from `.env`. Generate one with `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"` |

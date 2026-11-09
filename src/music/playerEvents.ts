@@ -5,6 +5,7 @@ import { escapeMd, pluralize, truncate } from "../utils/format.js";
 import type { BotClient } from "../utils/types.js";
 import { cancelIdleTimer, startIdleTimer } from "./idleManager.js";
 import { dedupeHistory } from "./actions.js";
+import { stopLiveLyrics } from "./liveLyrics.js";
 import { sendToPlayerChannel } from "./notify.js";
 import { prefetchNext } from "./trackResolver.js";
 import { postNowPlaying, refreshNowPlaying, retireNowPlaying } from "./nowPlaying.js";
@@ -138,6 +139,7 @@ export function registerPlayerEvents(client: BotClient, manager: LavalinkManager
     logger.info({ guildId: player.guildId, reason }, "Player destroyed");
     cancelIdleTimer(player.guildId);
     failures.delete(player.guildId);
+    stopLiveLyrics(player.guildId);
     void retireNowPlaying(client, player.guildId);
   });
 

@@ -3,8 +3,6 @@ import { errorEmbed, infoEmbed } from "../utils/embeds.js";
 import { logger } from "../utils/logger.js";
 import type { BotClient } from "../utils/types.js";
 import {
-  VOLUME_STEP,
-  changeVolume,
   cycleLoop,
   previousTrack,
   shuffleQueue,
@@ -16,9 +14,10 @@ import {
 } from "./actions.js";
 import { CONTROL_PREFIX, isLiveMessage, playerView, setQueuePage, toggleQueue, type ControlId } from "./nowPlaying.js";
 import { buildQueueEmbed, clampPage, pageFromButton, queueComponents } from "./queueView.js";
+import { startLiveLyrics } from "./liveLyrics.js";
 
 /** Buttons that change state but keep the same track: re-render the message in place. */
-const IN_PLACE = new Set<ControlId>(["pause", "queue", "shuffle", "loop", "voldown", "volup", "autoplay"]);
+const IN_PLACE = new Set<ControlId>(["pause", "queue", "shuffle", "loop", "autoplay"]);
 
 export function isControlButton(interaction: ButtonInteraction): boolean {
   return interaction.customId.startsWith(CONTROL_PREFIX);
@@ -35,8 +34,8 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
     return;
   }
 
-  // Same rule as slash commands: you must be listening to use the controls (except showing the queue).
-  if (id !== "queue") {
+  // Same rule as slash commands: you must be listening to use the controls (except the queue and lyrics).
+  if (id !== "queue" && id !== "lyrics") {
     const memberChannel = interaction.member.voice.channelId;
     if (!memberChannel) return void (await deny("Join the voice channel to use the controls."));
     if (memberChannel !== player.voiceChannelId) {
@@ -70,15 +69,16 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
       case "loop":
         result = await cycleLoop(player);
         break;
-      case "voldown":
-        result = await changeVolume(player, -VOLUME_STEP);
-        break;
-      case "volup":
-        result = await changeVolume(player, VOLUME_STEP);
-        break;
       case "autoplay":
         result = toggleAutoplay(player);
         break;
+      case "lyrics": {
+        // Rolling lyrics for this song, in a new message under the player.
+        const reply = await interaction.reply({ embeds: [infoEmbed("🎤 Looking up lyrics…")], withResponse: true });
+        const message = reply.resource?.message;
+        if (message) startLiveLyrics(client, interaction.guildId, message);
+        return;
+      }
       default:
         return void (await deny("Unknown button."));
     }
