@@ -16,6 +16,7 @@ import { logger } from "../utils/logger.js";
 import type { BotClient, Requester } from "../utils/types.js";
 import { sendToPlayerChannel } from "./notify.js";
 import { getMatchData } from "./trackResolver.js";
+import { buildQueueEmbed, clampPage, queueComponents } from "./queueView.js";
 
 export const CONTROL_PREFIX = "player:";
 export type ControlId =
@@ -95,22 +96,51 @@ function button(id: ControlId, emoji: string, style = ButtonStyle.Secondary, dis
 export function controlRows(player: Player, disabled = false): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
   const loopEmoji = player.repeatMode === "track" ? "🔂" : "🔁";
   const on = (v: boolean) => (v ? ButtonStyle.Success : ButtonStyle.Secondary);
+  // Discord buttons have no hover tooltips, so each one carries a short label saying what it does.
+  // Labels that depend on state say what the button does now (e.g. "Resume" while paused).
+  const loopLabel = { off: "Loop: off", queue: "Loop: queue", track: "Loop: song" }[player.repeatMode];
+  const queueOpen = isQueueOpen(player);
+  const autoplayOn = !!player.get<boolean>("autoplay");
   return [
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      button("previous", "⏮️", ButtonStyle.Secondary, disabled || player.queue.previous.length === 0),
-      button("pause", player.paused ? "▶️" : "⏸️", player.paused ? ButtonStyle.Success : ButtonStyle.Primary, disabled),
-      button("skip", "⏭️", ButtonStyle.Secondary, disabled),
-      button("stop", "⏹️", ButtonStyle.Danger, disabled),
-      button("queue", "📜", ButtonStyle.Secondary, disabled),
+      button("previous", "⏮️", ButtonStyle.Secondary, disabled || player.queue.previous.length === 0, "Previous"),
+      button("pause", player.paused ? "▶️" : "⏸️", player.paused ? ButtonStyle.Success : ButtonStyle.Primary, disabled, player.paused ? "Resume" : "Pause"),
+      button("skip", "⏭️", ButtonStyle.Secondary, disabled, "Skip"),
+      button("stop", "⏹️", ButtonStyle.Danger, disabled, "Stop"),
+      button("queue", "📜", on(queueOpen), disabled, queueOpen ? "Hide queue" : "Queue"),
     ),
     new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      button("shuffle", "🔀", ButtonStyle.Secondary, disabled || player.queue.tracks.length < 2),
-      button("loop", loopEmoji, on(player.repeatMode !== "off"), disabled),
-      button("voldown", "🔉", ButtonStyle.Secondary, disabled || player.volume <= 0),
-      button("volup", "🔊", ButtonStyle.Secondary, disabled || player.volume >= 150),
-      button("autoplay", "♾️", on(!!player.get<boolean>("autoplay")), disabled),
+      button("shuffle", "🔀", ButtonStyle.Secondary, disabled || player.queue.tracks.length < 2, "Shuffle"),
+      button("loop", loopEmoji, on(player.repeatMode !== "off"), disabled, loopLabel),
+      button("voldown", "🔉", ButtonStyle.Secondary, disabled || player.volume <= 0, "Vol −"),
+      button("volup", "🔊", ButtonStyle.Secondary, disabled || player.volume >= 150, "Vol +"),
+      button("autoplay", "♾️", on(autoplayOn), disabled, autoplayOn ? "Autoplay: on" : "Autoplay: off"),
     ),
   ];
+}
+
+// ---------- the full message: now playing + (when 📜 is on) the queue ----------
+
+export const isQueueOpen = (player: Player) => !!player.get<boolean>("showQueue");
+
+export function toggleQueue(player: Player): void {
+  player.set("showQueue", !isQueueOpen(player));
+}
+
+export function setQueuePage(player: Player, page: number): void {
+  player.set("queuePage", clampPage(player, page));
+}
+
+/** Everything the now-playing message shows. Up to 4 rows: 2 control rows, queue pages, song menu. */
+export function playerView(player: Player, track: Track, withProgress = false) {
+  const embeds = [nowPlayingEmbed(player, track, withProgress)];
+  const components = controlRows(player);
+  if (isQueueOpen(player)) {
+    const page = clampPage(player, player.get<number>("queuePage") ?? 0);
+    embeds.push(buildQueueEmbed(player, page, true));
+    components.push(...queueComponents(player, page));
+  }
+  return { embeds, components };
 }
 
 // ---------- live message per guild ----------
@@ -142,8 +172,7 @@ export function isLiveMessage(guildId: string, messageId: string): boolean {
 export async function postNowPlaying(client: BotClient, player: Player, track: Track): Promise<void> {
   await retireNowPlaying(client, player.guildId);
   const message = await sendToPlayerChannel(client, player, {
-    embeds: [nowPlayingEmbed(player, track)],
-    components: controlRows(player),
+    ...playerView(player, track),
     allowedMentions: { parse: [] },
   });
   if (message) live.set(player.guildId, { channelId: message.channelId, messageId: message.id });
@@ -162,7 +191,7 @@ export async function refreshNowPlaying(client: BotClient, player: Player): Prom
   const message = await fetchLive(client, player.guildId);
   if (!message) return;
   await message
-    .edit({ embeds: [nowPlayingEmbed(player, track)], components: controlRows(player) })
+    .edit(playerView(player, track))
     .catch((error: unknown) => logger.debug({ err: error }, "Could not refresh now-playing message"));
 }
 

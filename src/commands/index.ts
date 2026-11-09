@@ -1,6 +1,7 @@
 import type { Command } from "../utils/types.js";
 import { play } from "./play.js";
 import { playnext } from "./playnext.js";
+import { songrequest } from "./songrequest.js";
 import { search } from "./search.js";
 import { skip } from "./skip.js";
 import { previous } from "./previous.js";
@@ -35,6 +36,7 @@ import { help } from "./help.js";
 export const commands: Command[] = [
   play,
   playnext,
+  songrequest,
   search,
   skip,
   previous,

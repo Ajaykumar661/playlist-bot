@@ -2,13 +2,37 @@ import { Events } from "discord.js";
 import { logger } from "../utils/logger.js";
 import { replyError } from "../utils/embeds.js";
 import type { BotEvent } from "../utils/types.js";
-import { handleControlButton, isControlButton } from "../music/controls.js";
+import { handleControlButton, handleQueuePageButton, isControlButton } from "../music/controls.js";
+import { handleChoiceButton, isChoiceButton } from "../music/choice.js";
 import { handlePickMenu, isPickMenu } from "../music/picker.js";
+import { isQueuePageButton } from "../music/queueView.js";
 
 export const interactionCreateEvent: BotEvent<Events.InteractionCreate> = {
   name: Events.InteractionCreate,
   async execute(client, interaction) {
-    // Now-playing control buttons. Other buttons (queue pages, /search menu) use collectors in their command.
+    // "Play now / Play next / Add to queue" buttons.
+    if (interaction.isButton() && isChoiceButton(interaction.customId)) {
+      if (!interaction.inCachedGuild()) return;
+      try {
+        await handleChoiceButton(interaction, client);
+      } catch (error) {
+        logger.error({ err: error, button: interaction.customId }, "Choice button failed");
+      }
+      return;
+    }
+
+    // Queue page buttons (in the now-playing message and on /queue).
+    if (interaction.isButton() && isQueuePageButton(interaction.customId)) {
+      if (!interaction.inCachedGuild()) return;
+      try {
+        await handleQueuePageButton(interaction, client);
+      } catch (error) {
+        logger.error({ err: error, button: interaction.customId }, "Queue page button failed");
+      }
+      return;
+    }
+
+    // Now-playing control buttons. The /search menu uses a collector in its command.
     if (interaction.isButton() && isControlButton(interaction)) {
       if (!interaction.inCachedGuild()) return;
       try {

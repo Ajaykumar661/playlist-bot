@@ -3,7 +3,7 @@ import { Colors } from "../utils/embeds.js";
 import type { Command } from "../utils/types.js";
 
 const GROUPS: { title: string; names: string[] }[] = [
-  { title: "▶️ Play", names: ["play", "playnext", "search"] },
+  { title: "▶️ Play", names: ["play", "playnext", "songrequest", "search"] },
   { title: "⏯️ Playback", names: ["pause", "resume", "skip", "previous", "stop", "seek", "forward", "rewind", "replay"] },
   { title: "📜 Queue", names: ["queue", "nowplaying", "playqueue", "history", "jump", "move", "remove", "shuffle", "loop", "clear"] },
   { title: "🎛️ Sound & modes", names: ["volume", "quality", "filter", "autoplay", "247"] },
