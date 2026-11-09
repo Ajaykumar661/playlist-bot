@@ -29,14 +29,22 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 
 **Now-playing buttons.** Every track posts a "Now playing" message with controls, updated in place. Only people in the bot's voice channel can use them, except 📜.
 
-| Row 1 | ⏮️ Previous | ⏯️ Pause / resume | ⏭️ Skip | ⏹️ Stop | 📜 Queue (only you see it) |
-|---|---|---|---|---|---|
-| **Row 2** | 🔀 Shuffle | 🔁 Loop (off → queue → track) | 🔉 Volume −10 | 🔊 Volume +10 | ♾️ Autoplay |
+| Button | What it does |
+|---|---|
+| ⏮️ | Previous song |
+| ⏯️ | Pause / resume |
+| ⏭️ | Skip |
+| ⏹️ | Stop and leave |
+| 📜 | Show the queue (only you see it), with page buttons and a menu to play any song |
+| 🔀 | Shuffle |
+| 🔁 | Loop: off → queue → track |
+| 🔉 / 🔊 | Volume −10 / +10 |
+| ♾️ | Autoplay |
 
 | Command | What it does |
 |---|---|
-| `/play <query>` | Apple Music, Spotify or YouTube / YouTube Music link (playlist, album, track), or search text. Playlists queue every track and show the name, track count, total duration and first track. |
-| `/playnext <query>` | Same as `/play`, but adds to the front of the queue |
+| `/play <query>` | Apple Music, Spotify or YouTube / YouTube Music link (playlist, album, track), or a song name. While you type a name, matching songs appear as suggestions: pick one to add exactly that song. Playlists queue every track. |
+| `/playnext <query>` | Same as `/play` (with suggestions), but adds to the front of the queue |
 | `/search <query> [source]` | Pick from the top 10 results (YouTube Music, YouTube, Apple Music or Spotify) |
 | `/pause` `/resume` `/skip` | Playback control |
 | `/previous` | Go back to the previous song. Press again to keep going back; ⏭️ goes forward again. (`/replay` restarts the current song.) |
@@ -44,7 +52,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | `/seek <time>` | Jump to a time: `1:30`, `90`, `1m30s` |
 | `/forward [s]` `/rewind [s]` | Skip ahead or back (default 10 s) |
 | `/replay` | Restart the current track |
-| `/queue [page]` | Paginated queue (10 per page) with ⏮️ ◀️ ▶️ ⏭️ buttons, and a menu to play any song on the page now |
+| `/queue [page]` | The queue, 10 songs per page. Use ◀️ ▶️ (or ⏮️ ⏭️ for the first/last page) to see the rest, and the menu to play any song on the page now. |
 | `/playqueue <song>` | Play a queued song right now. Type part of the title and pick it from the list. The songs before it stay in the queue. |
 | `/history [song]` | The last 50 songs played, with a menu to play one again |
 | `/nowplaying` | Current track with a progress bar and the control buttons |
@@ -52,7 +60,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | `/move <from> <to>` | Reorder the queue |
 | `/remove <position>` | Remove a track from the queue |
 | `/shuffle` | Shuffle upcoming tracks |
-| `/loop <off|track|queue>` | Loop mode |
+| `/loop <mode>` | Loop mode: off, track or queue |
 | `/clear` | Clear upcoming tracks (the current one keeps playing) |
 | `/volume [0-150]` | Show or set the volume (above 100 can distort) |
 | `/quality` | Check volume, filter and source of the current song |
@@ -139,14 +147,14 @@ npm run build && npm start
 Keep `LAVALINK_HOST=localhost` in `.env` for this mode.
 
 ### npm scripts
-| Script | |
+| Script | What it does |
 |---|---|
 | `npm run dev` | Run from source with auto-reload (`tsx watch`) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run the compiled bot |
 | `npm run deploy-commands` | Register slash commands to your guild (instant) |
 | `npm run lint` | ESLint (type-aware) |
-| `npm test` | Unit tests for the match scorer (`node:test`) |
+| `npm test` | Unit tests for the match scorer and queue/history actions (`node:test`) |
 | `npm run typecheck` | Type-check `src/` and `test/` without building |
 
 ---
@@ -294,5 +302,3 @@ The voice channel's bitrate setting doesn't affect the bot: Discord forwards the
 ## Notes
 - This bot is for personal/self-hosted use. Respect the terms of service of the platforms it uses.
 - Lavalink is published on `127.0.0.1` only. Don't expose port 2333 to the internet.
-#   p l a y l i s t - b o t  
- 
