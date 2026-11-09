@@ -7,5 +7,5 @@ export const previous: Command = {
   data: new SlashCommandBuilder()
     .setName("previous")
     .setDescription("Go back to the previous track (restarts the current one if it's past 5 seconds)"),
-  execute: (interaction, client) => runAction(interaction, client, previousTrack, { refresh: false }),
+  execute: (interaction, client) => runAction(interaction, client, previousTrack, { quiet: true }),
 };

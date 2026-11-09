@@ -95,11 +95,9 @@ export async function handleControlButton(interaction: ButtonInteraction<"cached
     return;
   }
 
-  // Skip / previous / stop: a new now-playing message (or none) follows, so just say who did it.
-  await interaction.reply({
-    embeds: [infoEmbed(`${result.message} — <@${interaction.user.id}>`)],
-    allowedMentions: { parse: [] },
-  });
+  // Skip / previous / stop: no extra message (that was one per press). The now-playing message
+  // itself updates to the new song, or loses its buttons when playback stops.
+  await interaction.deferUpdate();
 }
 
 /**

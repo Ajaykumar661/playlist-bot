@@ -11,6 +11,7 @@ export const Colors = {
   warning: 0xf1c40f,
   error: 0xe74c3c,
   info: 0x5865f2,
+  paused: 0x8e8e93, // Apple's secondary grey, for the paused player
 } as const;
 
 export const errorEmbed = (message: string) => new EmbedBuilder().setColor(Colors.error).setDescription(`❌ ${message}`);

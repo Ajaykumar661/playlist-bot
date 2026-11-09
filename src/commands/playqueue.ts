@@ -18,7 +18,7 @@ export const playqueue: Command = {
     ),
   execute: (interaction, client) =>
     runAction(interaction, client, (p) => playFromQueue(p, interaction.options.getInteger("song", true) - 1), {
-      refresh: false,
+      quiet: true,
     }),
   autocomplete: (interaction, client) =>
     respondWithTracks(interaction, client.lavalink.getPlayer(interaction.guildId)?.queue.tracks ?? []),

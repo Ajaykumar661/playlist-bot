@@ -21,7 +21,7 @@ export const jump: Command = {
         await p.skip(position, false);
         return ok(`⏭️ Jumped to **${escapeMd(truncate(target.info.title, 80))}**.`);
       },
-      { refresh: false },
+      { quiet: true },
     ),
   autocomplete: (interaction, client) =>
     respondWithTracks(interaction, client.lavalink.getPlayer(interaction.guildId)?.queue.tracks ?? []),

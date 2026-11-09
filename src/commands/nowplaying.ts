@@ -5,7 +5,7 @@ import type { Command } from "../utils/types.js";
 
 // Read-only, so anyone in the server can use it. The reply carries the control buttons and becomes the live player message.
 export const nowplaying: Command = {
-  data: new SlashCommandBuilder().setName("nowplaying").setDescription("Show the current track with a progress bar and controls"),
+  data: new SlashCommandBuilder().setName("nowplaying").setDescription("Show the player card for the current song, with the controls"),
   async execute(interaction, client) {
     const player = client.lavalink.getPlayer(interaction.guildId);
     const track = player?.queue.current;
@@ -14,7 +14,7 @@ export const nowplaying: Command = {
       return;
     }
     const response = await interaction.reply({
-      ...playerView(player, track, true),
+      ...playerView(player, track),
       allowedMentions: { parse: [] },
       withResponse: true,
     });

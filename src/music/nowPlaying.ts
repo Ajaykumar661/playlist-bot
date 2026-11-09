@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 import type { Player, Track, UnresolvedTrack } from "lavalink-client";
 import { Colors } from "../utils/embeds.js";
-import { escapeMd, formatDuration, progressBar, truncate } from "../utils/format.js";
+import { escapeMd, timingLine, truncate } from "../utils/format.js";
 import { logger } from "../utils/logger.js";
 import type { BotClient, Requester } from "../utils/types.js";
 import { sendToPlayerChannel } from "./notify.js";
@@ -38,7 +38,7 @@ const METHOD_LABEL = {
   lavasrc: "LavaSrc fallback",
 } as const;
 
-const LOOP_LABEL = { off: "Off", track: "🔂 Track", queue: "🔁 Queue" } as const;
+const LOOP_LABEL = { off: "Loop off", track: "🔂 Looping song", queue: "🔁 Looping queue" } as const;
 
 /** "YouTube: <title> — <channel> · via search (score 82) · wrong song? /wrong" */
 export function matchFooter(track: Track | UnresolvedTrack): string | null {
@@ -52,35 +52,49 @@ export function matchFooter(track: Track | UnresolvedTrack): string | null {
   );
 }
 
-export function nowPlayingEmbed(player: Player, track: Track, withProgress = false): EmbedBuilder {
+/** Apple artwork comes as 3000×3000 (several MB); 600×600 is plenty and loads fast. */
+export function artworkFor(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.replace(/\/\d+x\d+(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/i, "/600x600bb.jpg");
+}
+
+/** The now-playing card, laid out like Apple Music's player: cover art, title, artist · album, progress. */
+export function nowPlayingEmbed(player: Player, track: Track): EmbedBuilder {
   const requester = track.requester as Requester | undefined;
+  const meta = getMatchData(track)?.apple;
   const duration = track.info.duration;
-  const lines = [
-    `by **${escapeMd(track.info.author)}** · \`${track.info.isStream ? "LIVE" : formatDuration(duration)}\`` +
-      (requester ? ` · requested by <@${requester.id}>` : ""),
-  ];
-  if (withProgress && !track.info.isStream) {
-    const position = duration > 0 ? Math.min(player.position, duration) : player.position;
-    lines.push("", progressBar(position, duration), `\`${formatDuration(position)} / ${formatDuration(duration)}\``);
+  const lines: string[] = [];
+
+  // Artist · Album
+  const album = meta?.album ? ` · *${escapeMd(truncate(meta.album, 80))}*` : "";
+  lines.push(`**${escapeMd(truncate(meta?.artist ?? track.info.author, 100))}**${album}`, "");
+
+  // "3:52 · ends in 2 minutes": Discord counts this down live, no message edits needed.
+  lines.push(timingLine(player.position, duration, player.paused, track.info.isStream));
+
+  const next = player.queue.tracks[0];
+  if (next) {
+    lines.push("", `**Up next** · ${escapeMd(truncate(next.info.title ?? "Unknown", 60))} — ${escapeMd(truncate(next.info.author ?? "", 40))}`);
   }
 
-  const status = [
-    `🔊 ${player.volume}%`,
-    `Loop: ${LOOP_LABEL[player.repeatMode]}`,
-    `Up next: ${player.queue.tracks.length}`,
+  // Only modes that are on, in small text; no volume.
+  const modes = [
+    player.repeatMode !== "off" ? LOOP_LABEL[player.repeatMode] : null,
     player.get<boolean>("autoplay") ? "♾️ Autoplay" : null,
     player.get<string>("filter") ? `🎛️ ${player.get<string>("filter")}` : null,
     player.get<boolean>("stay247") ? "📌 24/7" : null,
+    requester ? `Requested by <@${requester.id}>` : null,
   ].filter(Boolean);
-  lines.push("", status.join(" · "));
+  if (modes.length) lines.push("", `-# ${modes.join(" · ")}`);
 
   const embed = new EmbedBuilder()
-    .setColor(Colors.primary)
-    .setAuthor({ name: player.paused ? "⏸️ Paused" : "▶️ Now playing" })
-    .setTitle(truncate(track.info.title, 250))
+    .setColor(player.paused ? Colors.paused : Colors.primary)
+    .setAuthor({ name: player.paused ? "⏸  PAUSED" : "▶  NOW PLAYING" })
+    .setTitle(truncate(meta?.title ?? track.info.title, 250))
     .setDescription(lines.join("\n"));
-  if (track.info.uri) embed.setURL(track.info.uri);
-  if (track.info.artworkUrl) embed.setThumbnail(track.info.artworkUrl);
+  if (track.info.uri) embed.setURL(meta?.uri ?? track.info.uri);
+  const art = artworkFor(meta?.artworkUrl ?? track.info.artworkUrl);
+  if (art) embed.setImage(art);
   const footer = matchFooter(track);
   if (footer) embed.setFooter({ text: footer });
   return embed;
@@ -130,8 +144,8 @@ export function setQueuePage(player: Player, page: number): void {
 }
 
 /** Everything the now-playing message shows. Up to 4 rows: 2 control rows, queue pages, song menu. */
-export function playerView(player: Player, track: Track, withProgress = false) {
-  const embeds = [nowPlayingEmbed(player, track, withProgress)];
+export function playerView(player: Player, track: Track) {
+  const embeds = [nowPlayingEmbed(player, track)];
   const components = controlRows(player);
   if (isQueueOpen(player)) {
     const page = clampPage(player, player.get<number>("queuePage") ?? 0);
@@ -166,9 +180,28 @@ export function isLiveMessage(guildId: string, messageId: string): boolean {
   return live.get(guildId)?.messageId === messageId;
 }
 
-/** Post a fresh now-playing message and strip the buttons from the previous one. */
+/** How far up the live message may have scrolled before a new song reposts it at the bottom. */
+const REUSE_WITHIN_LAST = 5;
+
+/**
+ * Show a new song. To avoid one message per song, the existing now-playing message is edited in place.
+ * Only if chat has pushed it out of sight is it deleted and posted again at the bottom.
+ */
 export async function postNowPlaying(client: BotClient, player: Player, track: Track): Promise<void> {
-  await retireNowPlaying(client, player.guildId);
+  const existing = await fetchLive(client, player.guildId);
+  if (existing) {
+    const recent = await existing.channel.messages.fetch({ limit: REUSE_WITHIN_LAST }).catch(() => null);
+    if (recent?.has(existing.id)) {
+      const edited = await existing.edit({ ...playerView(player, track), allowedMentions: { parse: [] } }).then(
+        () => true,
+        () => false,
+      );
+      if (edited) return;
+    }
+    live.delete(player.guildId);
+    // Scrolled away: remove it (or at least its buttons) so only one player message exists.
+    await existing.delete().catch(() => existing.edit({ components: [] }).catch(() => undefined));
+  }
   const message = await sendToPlayerChannel(client, player, {
     ...playerView(player, track),
     allowedMentions: { parse: [] },

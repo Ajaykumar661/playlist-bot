@@ -10,12 +10,18 @@ export function formatDuration(ms: number): string {
   return `${minutes}:${ss}`;
 }
 
-/** ▬▬▬▬🔘▬▬▬▬▬▬ style bar. */
-export function progressBar(positionMs: number, durationMs: number, size = 18): string {
-  if (durationMs <= 0) return "🔴 LIVE";
-  const ratio = Math.min(Math.max(positionMs / durationMs, 0), 1);
-  const knob = Math.min(Math.round(ratio * size), size - 1);
-  return "▬".repeat(knob) + "🔘" + "▬".repeat(size - knob - 1);
+/**
+ * Song timing for the now-playing card. Instead of a progress bar (Discord can't animate messages,
+ * so a bar only moves in jumps when the message is edited), it uses a Discord timestamp:
+ * "<t:…:R>" shows "ends in 2 minutes" and every Discord client keeps it counting down by itself.
+ */
+export function timingLine(positionMs: number, durationMs: number, paused: boolean, isStream: boolean, nowMs = Date.now()): string {
+  if (isStream || durationMs <= 0) return "🔴 **LIVE**";
+  const position = Math.min(Math.max(positionMs, 0), durationMs);
+  const code = (ms: number) => "`" + formatDuration(ms) + "`";
+  if (paused) return `⏸ Paused at ${code(position)} of ${code(durationMs)}`;
+  const endsAt = Math.round((nowMs + durationMs - position) / 1000);
+  return `${code(durationMs)} · ends <t:${endsAt}:R>`;
 }
 
 /** Cut a string to Discord-friendly length. */

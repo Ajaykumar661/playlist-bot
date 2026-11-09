@@ -56,7 +56,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | `/queue [page]` | The queue, 10 songs per page. Use ◀️ ▶️ (or ⏮️ ⏭️ for the first/last page) to see the rest, and the menu to pick a song (asks ▶️ Play now or ⏭️ Play next). The 📜 button shows the same list inside the Now playing message. |
 | `/playqueue <song>` | Play a queued song right now. Type part of the title and pick it from the list. The songs before it stay in the queue. |
 | `/history [song]` | The last 50 songs played, with a menu to play one again (now, next, or at the end of the queue) |
-| `/nowplaying` | Current track with a progress bar and the control buttons |
+| `/nowplaying` | The player card (cover art, artist · album, length with a live "ends in …" countdown, up next) with the control buttons |
 | `/jump <position>` | Skip to a queued song and **remove** the songs before it (pick from the list like `/playqueue`) |
 | `/move <from> <to>` | Reorder the queue |
 | `/remove <position>` | Remove a track from the queue |
@@ -75,6 +75,7 @@ Apple Music audio is DRM-protected, so the bot never streams from Apple. It work
 | `/help` | List all commands |
 
 **Behaviour:**
+- **One player message:** the Now playing message is updated in place when the song changes (reposted at the bottom only if chat has pushed it more than 5 messages up). Skip / previous / stop buttons post nothing, and `/skip`, `/previous`, `/jump`, `/playqueue`, `/history song:`, `/stop` confirm privately.
 - **Allowed channels:** if `ALLOWED_CHANNEL_IDS` is set, slash commands only work in those channels (see [Configure `.env`](#3-configure-env)). Buttons and menus keep working on the bot's own messages, which are posted in an allowed channel.
 - **Voice channel:** you must be in a voice channel. If the bot is already playing in a different channel in the same server, it politely refuses.
 - **Auto-leave:** the bot leaves after **3 minutes** with an empty queue, or 3 minutes after everyone leaves its channel (unless `/247` is on).

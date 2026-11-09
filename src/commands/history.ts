@@ -23,7 +23,7 @@ export const history: Command = {
   async execute(interaction, client) {
     const pick = interaction.options.getInteger("song");
     if (pick !== null) {
-      await runAction(interaction, client, (p) => playFromHistory(p, pick - 1), { refresh: false });
+      await runAction(interaction, client, (p) => playFromHistory(p, pick - 1), { quiet: true });
       return;
     }
 
